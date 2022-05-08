@@ -31,8 +31,8 @@ void loop() {
   NClutchL = analogRead(NPinClutchL);
   NClutchR = analogRead(NPinClutchR);
 
-  rClutchL = map(NClutchL, 188, 633, 0, 1023);
-  rClutchR = map(NClutchR, 156, 643, 0, 1023);
+  rClutchL = map(NClutchL, 200, 650, 0, 1023);
+  rClutchR = map(NClutchR, 170, 660, 0, 1023);
 
   Joystick.setXAxis(max(rClutchL, rClutchR));
 

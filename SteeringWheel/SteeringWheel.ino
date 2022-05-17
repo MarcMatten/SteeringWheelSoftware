@@ -25,6 +25,7 @@ bool BRightIsBitePaddle = false;
 unsigned long tClutchStartMode = 0;
 unsigned long tBothPaddlesPressed = 0;
 unsigned long tStartModeThreshold = 1000;
+// unsigned long tExec = 0; // 17.05.2022: 14 ms
 unsigned long tNow = 0;
 
 // include library that turns the Pro Mirco into a gamecontroller
@@ -33,6 +34,7 @@ Joystick_ Joystick;
 
 void setup() {
   Joystick.begin();
+  // Serial.begin(9600);
 
   for (int i = 0; i < NButtons; i++) {
     pinMode(NButtonPin[i], INPUT_PULLUP);    
@@ -40,6 +42,7 @@ void setup() {
 }
 
 void loop() {
+  // tExec = millis();
   for (int i = 0; i < NButtons; i++) {
     Button(i, digitalRead(NButtonPin[i])); 
   }
@@ -108,7 +111,8 @@ void loop() {
   // send game controller state to PC
   Joystick.sendState();
   
-  delay(10);
+  // delay(10);
+  // Serial.println(millis() - tExec);
 }
 
 void Button(int NButton, int ButtonState) {

@@ -25,15 +25,18 @@ bool BRightIsBitePaddle = false;
 unsigned long tClutchStartMode = 0;
 unsigned long tBothPaddlesPressed = 0;
 unsigned long tStartModeThreshold = 1000;
-// unsigned long tExec = 0; // 17.05.2022: 14 ms
+unsigned long tExec = 0; // 17.05.2022: 2 ms
 unsigned long tNow = 0;
 
 // include library that turns the Pro Mirco into a gamecontroller
 #include <Joystick.h>
-Joystick_ Joystick;
+Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID, 
+  JOYSTICK_TYPE_GAMEPAD, 40, 0,
+  true, false, false, false, false, false,
+  false, false, false, false, false);
 
 void setup() {
-  Joystick.begin();
+  Joystick.begin(false);
   // Serial.begin(9600);
 
   for (int i = 0; i < NButtons; i++) {

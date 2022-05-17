@@ -10,13 +10,18 @@ int NClutchL = 0;
 int NClutchR = 0;
 int rClutchL = 0;
 int rClutchR = 0;
+int rClutchRemappedL = 0;
+int rClutchRemappedR = 0;
+int rClutch = 0;
 int rClutchMinL = 200;
 int rClutchMaxL = 650;
 int rClutchMinR = 170;
 int rClutchMaxR = 660;
-int rBitePoint = 50;
+float rBitePoint = 0.5;
 bool BBothPaddlesPressed = false;
 bool BStartMode = false;
+bool BLeftIsBitePaddle = false;
+bool BRightIsBitePaddle = false;
 unsigned long tClutchStartMode = 0;
 unsigned long tBothPaddlesPressed = 0;
 unsigned long tStartModeThreshold = 1000;
@@ -28,7 +33,6 @@ Joystick_ Joystick;
 
 void setup() {
   Joystick.begin();
-  // Serial.begin(9600);
 
   for (int i = 0; i < NButtons; i++) {
     pinMode(NButtonPin[i], INPUT_PULLUP);    
@@ -48,56 +52,61 @@ void loop() {
 
   tNow = millis();
 
-  if (rClutchL >= 1000 && rClutchR >= 1000) {       
-//    Joystick.pressButton(24);
+  if (rClutchL >= 1000 && rClutchR >= 1000) {
     if (BBothPaddlesPressed == false) {
       BBothPaddlesPressed = true;
-      tBothPaddlesPressed = tNow; 
-//      Joystick.pressButton(20);
+      tBothPaddlesPressed = tNow;
     }
   }
   else {
-    BBothPaddlesPressed = false;    
-//    Joystick.releaseButton(24);
+    BBothPaddlesPressed = false;
     if (rClutchL <= 10 && rClutchR <= 10) {
       if (BStartMode == true) {
         BStartMode = false;
-        // Serial.println("================================");
-        // Serial.print("<<< START MODE OFF>>>");
-        Joystick.releaseButton(23);
+        BLeftIsBitePaddle = false;
+        BRightIsBitePaddle = false;
       }
     }
   }
 
   if (BBothPaddlesPressed == true) {
-//    Joystick.pressButton(25);
     if ((tNow - tBothPaddlesPressed) >= tStartModeThreshold) {
       if (BStartMode == false) {
         BStartMode = true;
-        // Serial.println("================================");
-        // Serial.print("<<< START MODE >>>");
-        Joystick.pressButton(23);
       }
     }
   }
-  else {    
-//    Joystick.releaseButton(23);
-//    Joystick.releaseButton(25);
+
+  if (BStartMode == true) {
+    if (BLeftIsBitePaddle == true || BRightIsBitePaddle == true) {
+      if (BLeftIsBitePaddle == true) {
+          rClutchRemappedL = map(rClutchL, 0, 1023, 0, 1023*rBitePoint);
+          rClutchRemappedR = map(rClutchR, 0, 1023, 0, 1023);
+      }
+      else if (BRightIsBitePaddle == true) {
+          rClutchRemappedL = map(rClutchL, 0, 1023, 0, 1023);
+          rClutchRemappedR = map(rClutchR, 0, 1023, 0, 1023*rBitePoint);
+      }
+      rClutch = max(rClutchRemappedL, rClutchRemappedR);      
+    }
+    else {
+      if (rClutchL + 50 < rClutchR) {
+        BRightIsBitePaddle = true;
+      }
+      else if (rClutchR + 50 < rClutchL) {
+        BLeftIsBitePaddle = true;
+      }
+      rClutch = max(rClutchL, rClutchR);
+    }
+  }
+  else {
+    rClutch = max(rClutchL, rClutchR);    
   }
 
-  Joystick.setXAxis(max(rClutchL, rClutchR));
+  Joystick.setXAxis(rClutch);
 
   // send game controller state to PC
   Joystick.sendState();
-
-//  Serial.println("================================");
-//  Serial.print(tNow);
-//  Serial.print(" | ");
-//  Serial.print(tBothPaddlesPressed);
-//  Serial.print(" | ");
-//  Serial.print(tStartModeThreshold);
-//  Serial.print(" | ");
-//  Serial.println(BBothPaddlesPressed);
   
   delay(10);
 }

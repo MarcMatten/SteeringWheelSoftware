@@ -25,8 +25,12 @@ bool BRightIsBitePaddle = false;
 unsigned long tClutchStartMode = 0;
 unsigned long tBothPaddlesPressed = 0;
 unsigned long tStartModeThreshold = 1000;
-unsigned long tExec = 0; // 17.05.2022: 2 ms
+unsigned long tExec = 0; // 20.06.2022: 1600 µs
 unsigned long tNow = 0;
+
+unsigned long tButtonThreshold[] = {1, 0.5, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned long tButtonPressed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned long tButtonSet[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 const int BUFFER_SIZE = 4; // 100;
 byte buf[BUFFER_SIZE];
@@ -49,18 +53,7 @@ void setup() {
 }
 
 void loop() {
-  // tExec = millis();
-//  Serial.print(buf[0]);
-//  Serial.print(" | ");  
-//  Serial.print(buf[1]);
-//  Serial.print(" | "); 
-//  Serial.print(buf[2]);
-//  Serial.print(" | "); 
-//  Serial.print(buf[3]);
-//  Serial.print(" || "); 
- // Serial.println(buf);
-//  Serial.print(" || "); 
-//  Serial.println(rBitePoint);
+   tExec = micros();
   
   if (Serial.available() == BUFFER_SIZE) {
     buf[0] = Serial.read();
@@ -143,8 +136,7 @@ void loop() {
   // send game controller state to PC
   Joystick.sendState();
   
-  // delay(10);
-  // Serial.println(millis() - tExec);
+   Serial.println(micros() - tExec);
 }
 
 void Button(int NButton, int ButtonState) {

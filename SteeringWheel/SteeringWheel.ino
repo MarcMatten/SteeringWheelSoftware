@@ -25,12 +25,12 @@ bool BRightIsBitePaddle = false;
 unsigned long tClutchStartMode = 0;
 unsigned long tBothPaddlesPressed = 0;
 unsigned long tStartModeThreshold = 1000;
-unsigned long tExec = 0; // 20.06.2022: 1600 µs
+unsigned long tExec = 0; // 20.06.2022: 1700 µs
 unsigned long tNow = 0;
 
-unsigned long tButtonThreshold[] = {1, 0.5, 0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned long tButtonThreshold[] = {100, 100, 500, 100, 250, 100, 100, 100, 100, 0, 100, 0};
 unsigned long tButtonPressed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-unsigned long tButtonSet[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+unsigned long tButtonSet[] = {32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 0, 32};
 
 const int BUFFER_SIZE = 4; // 100;
 byte buf[BUFFER_SIZE];
@@ -53,7 +53,7 @@ void setup() {
 }
 
 void loop() {
-   tExec = micros();
+  // tExec = micros();
   
   if (Serial.available() == BUFFER_SIZE) {
     buf[0] = Serial.read();
@@ -136,16 +136,22 @@ void loop() {
   // send game controller state to PC
   Joystick.sendState();
   
-   Serial.println(micros() - tExec);
+  // Serial.println(micros() - tExec);
 }
 
 void Button(int NButton, int ButtonState) {
   if (ButtonState == LOW)
   {
-    Joystick.pressButton(NButton);
+    if (tButtonPressed[NButton] == 0) {tButtonPressed[NButton] = millis();}
+    if (millis() - tButtonPressed[NButton] > tButtonThreshold[NButton]) {
+      Joystick.pressButton(NButton);
+    }
   }
   else
   {
-    Joystick.releaseButton(NButton);
+    if (millis() - tButtonPressed[NButton] - tButtonThreshold[NButton] > tButtonSet[NButton]){
+      Joystick.releaseButton(NButton);
+      tButtonPressed[NButton] = 0;
+    }
   }
 }

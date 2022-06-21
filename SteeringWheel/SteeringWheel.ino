@@ -5,11 +5,7 @@ int NPinClutchR = A1;
 
 int NButtons = 12; // number of buttons defined in NButtonPin
 
-// variable to store Clutch Paddle reading
-int NClutchL = 0;
-int NClutchR = 0;
-int rClutchL = 0;
-int rClutchR = 0;
+// global for Clutch Paddle logic
 int rClutchRemappedL = 0;
 int rClutchRemappedR = 0;
 int rClutch = 0;
@@ -25,14 +21,14 @@ bool BRightIsBitePaddle = false;
 unsigned long tClutchStartMode = 0;
 unsigned long tBothPaddlesPressed = 0;
 unsigned long tStartModeThreshold = 1000;
-unsigned long tExec = 0; // 20.06.2022: 1700 µs
-unsigned long tNow = 0;
 
+// timer settings for button latch and trashold times
 unsigned long tButtonThreshold[] = {100, 100, 500, 100, 250, 100, 100, 100, 100, 0, 100, 0};
 unsigned long tButtonPressed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unsigned long tButtonSet[] = {32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 0, 32};
 
-const int BUFFER_SIZE = 4; // 100;
+// buffer definition for serial read
+const int BUFFER_SIZE = 4;
 byte buf[BUFFER_SIZE];
 
 // include library that turns the Pro Mirco into a gamecontroller
@@ -47,14 +43,16 @@ void setup() {
   Joystick.begin(false);
   Serial.begin(9600);
 
+  // define pins for buttons
   for (int i = 0; i < NButtons; i++) {
     pinMode(NButtonPin[i], INPUT_PULLUP);    
   }
 }
 
 void loop() {
-  // tExec = micros();
-  
+  unsigned long tStartLoop = micros(); // for timer
+
+  // read bite point from serial
   if (Serial.available() == BUFFER_SIZE) {
     buf[0] = Serial.read();
     buf[1] = Serial.read();
@@ -65,29 +63,36 @@ void loop() {
     byte * b = (byte *) &rBitePoint;
     Serial.write(b,4);
   }
-  
+
+  // call logic for each button
   for (int i = 0; i < NButtons; i++) {
     Button(i, digitalRead(NButtonPin[i])); 
   }
 
-  NClutchL = analogRead(NPinClutchL);
-  NClutchR = analogRead(NPinClutchR);
+  // read raw clutch signals
+  int NClutchL = analogRead(NPinClutchL);
+  int NClutchR = analogRead(NPinClutchR);
 
-  rClutchL = map(NClutchL, rClutchMinL, rClutchMaxL, 0, 1023);
-  rClutchR = map(NClutchR, rClutchMinR, rClutchMaxR, 0, 1023);
+  // re-map clutch paddles to calibrated range
+  int rClutchL = map(NClutchL, rClutchMinL, rClutchMaxL, 0, 1023);
+  int rClutchR = map(NClutchR, rClutchMinR, rClutchMaxR, 0, 1023);
 
-  tNow = millis();
+  // unsigned long tNow = millis();
 
+  // start mode logic
   if (rClutchL >= 1000 && rClutchR >= 1000) {
     if (BBothPaddlesPressed == false) {
+      // start timer when both paddles are pressed
       BBothPaddlesPressed = true;
-      tBothPaddlesPressed = tNow;
+      tBothPaddlesPressed = tStartLoop/1000;
     }
   }
   else {
+    // paddle release
     BBothPaddlesPressed = false;
     if (rClutchL <= 10 && rClutchR <= 10) {
       if (BStartMode == true) {
+        // reset start mode when both paddles released 
         BStartMode = false;
         BLeftIsBitePaddle = false;
         BRightIsBitePaddle = false;
@@ -96,8 +101,9 @@ void loop() {
     }
   }
 
+  // engage start mode when both paddles fully engaged for long enough
   if (BBothPaddlesPressed == true) {
-    if ((tNow - tBothPaddlesPressed) >= tStartModeThreshold) {
+    if ((tStartLoop/1000 - tBothPaddlesPressed) >= tStartModeThreshold) {
       if (BStartMode == false) {
         BStartMode = true;
         Serial.write(true);
@@ -105,7 +111,9 @@ void loop() {
     }
   }
 
+  
   if (BStartMode == true) {
+    // bite point mode logic
     if (BLeftIsBitePaddle == true || BRightIsBitePaddle == true) {
       if (BLeftIsBitePaddle == true) {
           rClutchRemappedL = map(rClutchL, 0, 1023, 0, 1023*rBitePoint);
@@ -118,6 +126,7 @@ void loop() {
       rClutch = max(rClutchRemappedL, rClutchRemappedR);      
     }
     else {
+      // when in start mode and one paddle gets released, the other controls the bit point
       if (rClutchL + 50 < rClutchR) {
         BRightIsBitePaddle = true;
       }
@@ -128,27 +137,33 @@ void loop() {
     }
   }
   else {
+    // when not in start model take max input
     rClutch = max(rClutchL, rClutchR);    
   }
 
+  // set clutch output
   Joystick.setXAxis(rClutch);
-
+  
   // send game controller state to PC
+  // delay(5); // allow for enough time to finish previous sending
   Joystick.sendState();
   
-  // Serial.println(micros() - tExec);
+  // Serial.println(micros() - tStartLoop);
 }
 
+
 void Button(int NButton, int ButtonState) {
-  if (ButtonState == LOW)
+  if (ButtonState == LOW) // button pressed
   {
+    // threshold logic
     if (tButtonPressed[NButton] == 0) {tButtonPressed[NButton] = millis();}
     if (millis() - tButtonPressed[NButton] > tButtonThreshold[NButton]) {
       Joystick.pressButton(NButton);
     }
   }
-  else
+  else // button released
   {
+    // latching logic
     if (millis() - tButtonPressed[NButton] - tButtonThreshold[NButton] > tButtonSet[NButton]){
       Joystick.releaseButton(NButton);
       tButtonPressed[NButton] = 0;

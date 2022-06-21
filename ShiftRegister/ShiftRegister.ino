@@ -13,7 +13,7 @@ int NThumbWheelErrorR = 0;
 bool BThumbWheelInit = false;
 bool BThumbWheelError = false;
 
-// execution time calculaiton
+// execution time calculation
 unsigned long tExec = 0; // 20.06.2022: 145 µs
 
 void setup() {
@@ -27,6 +27,13 @@ void setup() {
 void loop() {
   // tExec = micros();
 
+   ThumbWheels();
+  
+  // Serial.println(micros() - tExec);
+  delay(10); //short delay added for debugging
+} 
+
+void ThumbWheels() {
   // read in shift register states
   uint16_t  dataIn = 0; //Swap out byte for uint16_t or uint32_t
   int dataIn2[] = {0, 0, 0, 0, 0, 0, 0, 0};
@@ -116,7 +123,7 @@ void loop() {
         if (NThumbWheelR == 0) {Serial.println("R-");}
         else if (NThumbWheelR == 1) {Serial.println("R+");}
       }
-      
+        
       NThumbWheelOldL = NThumbWheelL;
       NThumbWheelOldR = NThumbWheelR;
     }
@@ -125,8 +132,5 @@ void loop() {
       NThumbWheelOldR = NThumbWheelR;
       BThumbWheelInit = true;
     }
-  }   
-  
-  // Serial.println(micros() - tExec);
-  delay(10); //short delay added for debugging
-} 
+  }  
+}

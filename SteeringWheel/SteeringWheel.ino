@@ -1,9 +1,14 @@
-// Pin Mapping
+// Pin Mapping for buttons and clutch
 int NButtonPin[] = {A3, 3, 4, 5, 6, 7, 8, 9, 16, 14, 10, 15};
 int NPinClutchL = A0;
 int NPinClutchR = A1;
 
 int NButtons = 12; // number of buttons defined in NButtonPin
+
+// Pins for shift register
+int NPinIOSelect = 1;    // SR Pin 15.
+int NPinClockPulse = 0;  //SR Pin 7. 
+int NPinDataOut = 2;     //SR Pin 13.
 
 // global for Clutch Paddle logic
 int rClutchRemappedL = 0;
@@ -21,14 +26,31 @@ unsigned long tClutchStartMode = 0;
 unsigned long tBothPaddlesPressed = 0;
 unsigned long tStartModeThreshold = 1000;
 
-// timer settings for button latch and trashold times
+// timer settings for button latch and threshold times
 unsigned long tButtonThreshold[] = {100, 100, 500, 100, 250, 100, 100, 100, 100, 0, 100, 0};
 unsigned long tButtonPressed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 unsigned long tButtonSet[] = {32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 0, 32};
 
+// globals for thumb wheels
+int NThumbWheelMapL[3] = {1, 2, 3};
+int NThumbWheelMapR[3] = {7, 6, 5};
+int NThumbWheelOldL = 0;
+int NThumbWheelOldR = 0;
+int NThumbWheelErrorL = 0;
+int NThumbWheelErrorR = 0;
+bool BThumbWheelInit = false;
+bool BThumbWheelError = false;
+unsigned long tThumbWheelChange[] = {0, 0};
+unsigned long tThumbWheelLatched =750;
+//                         L+  L-  R+  R-
+int NButtonThumbWheel[] = {12, 13, 14, 15};
+
 // buffer definition for serial read
 const int BUFFER_SIZE = 4;
 byte buf[BUFFER_SIZE];
+
+// global timer
+unsigned long tStartLoop = 0;
 
 // include library that turns the Pro Mirco into a gamecontroller
 #include <Joystick.h>
@@ -39,17 +61,23 @@ Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,
   false, false, false, false, false);
 
 void setup() {
-  Joystick.begin(false);
+  Joystick.begin(false);  
+  
   Serial.begin(9600);
 
   // define pins for buttons
   for (int i = 0; i < NButtons; i++) {
-    pinMode(NButtonPin[i], INPUT_PULLUP);    
+    pinMode(NButtonPin[i], INPUT_PULLUP); 
+
+  // define pins for shift register
+  pinMode(NPinIOSelect, OUTPUT);
+  pinMode(NPinClockPulse, OUTPUT);
+  pinMode(NPinDataOut, INPUT);   
   }
 }
 
 void loop() {
-  unsigned long tStartLoop = micros(); // for timer; 21.06.22: 670 µs
+  tStartLoop = micros(); // for timer; 21.06.22: 670 µs
 
   // read bite point from serial
   if (Serial.available() == BUFFER_SIZE) {
@@ -71,14 +99,17 @@ void loop() {
   // read raw clutch signals and pass them to the clutch logic
   int rClutch = Clutch(analogRead(NPinClutchL), analogRead(NPinClutchR), tStartLoop/1000);
 
+  ThumbWheels(tStartLoop/1000);
+
   // set clutch output
   Joystick.setXAxis(rClutch);
   
   // send game controller state to PC
   Joystick.sendState();
-  Serial.println(micros() - tStartLoop);
   
-  delay(5); // allow for enough time to finish previous sending
+  //Serial.println(micros() - tStartLoop);
+  
+  delay(10); // allow for enough time to finish previous sending
   
 }
 
@@ -174,4 +205,151 @@ int Clutch(int rClutchRawL, int rClutchRawR, unsigned long tNow) {
   }
 
   return rClutch;
+}
+
+
+void ThumbWheels(unsigned long tNow) {
+  // read in shift register states
+  uint16_t  dataIn = 0; //Swap out byte for uint16_t or uint32_t
+  int dataIn2[] = {0, 0, 0, 0, 0, 0, 0, 0};
+  int value;
+  int NState[8];
+  
+  digitalWrite(NPinIOSelect, 0);    // enables parallel inputs
+  digitalWrite(NPinClockPulse, 0);  // start clock pin low
+  digitalWrite(NPinClockPulse, 1);  // set clock pin high, data loaded into SR
+  digitalWrite(NPinIOSelect, 1);    // disable parallel inputs and enable serial output 
+
+  for(int j = 0; j < 8  ; j++) {         //sets integer to values 0 through 7 for all 8 bits
+      value = digitalRead(NPinDataOut); //reads data from SR serial data out pin
+      NState[j] = value;
+      if (value) {
+        int a = (1 << j);       // shifts bit to its proper place in sequence. 
+                                /*for more information see Arduino "BitShift" */
+        dataIn = dataIn | a;    //combines data from shifted bits to form a single 8-bit number
+                                /*for more information see Arduino "Bitwise operators" */
+        }
+        digitalWrite(NPinClockPulse, LOW);  //after each bit is logged, 
+        digitalWrite(NPinClockPulse, HIGH); //pulses clock to get next bit
+      }
+      
+  // Interpret shift register states  
+  int NStateCountL = 0;
+  int NStateCountR = 0;
+  int NThumbWheelL = 0;
+  int NThumbWheelR = 0;
+  
+  for(int k=0; k <3; k++)
+  {
+    // how many pins are high
+    NStateCountL += NState[NThumbWheelMapL[k]];
+    NStateCountR += NState[NThumbWheelMapR[k]];
+
+    // which pin is high
+    if (NState[NThumbWheelMapL[k]] == 1){ NThumbWheelL = k; }    
+    if (NState[NThumbWheelMapR[k]] == 1){ NThumbWheelR = k; }
+  }
+
+  // Detect Thumb Wheel Errors
+  if (NStateCountL != 1 || NStateCountR != 1) {
+    // error when not exactly one pin high per thumg wheel
+    BThumbWheelError = true;
+    // Left Thumb Wheel Error
+    if (NStateCountL != 1) { 
+      NThumbWheelErrorL += 1;
+      if (NThumbWheelErrorL >= 10){ Serial.print("ERROR: Left Thumb Wheel reading "); Serial.print(NStateCountL); Serial.println(" states!");} }
+    // Right Thumb Wheel Error 
+    if (NStateCountR != 1) { 
+      NThumbWheelErrorR += 1;
+      if (NThumbWheelErrorR >= 10){ Serial.print("ERROR: Right Thumb Wheel reading "); Serial.print(NStateCountR); Serial.println(" states!");} } 
+  }
+  else{
+    // No Error
+    BThumbWheelError = false;
+    NThumbWheelErrorL = 0;
+    NThumbWheelErrorR = 0;
+  }
+
+  // Thumb Wheel Switch detection
+  // Button allocation:
+  // 0   1   2   3
+  // L+  L-  R+  R-
+    
+  if (BThumbWheelError == false) {
+    if (BThumbWheelInit == true){
+      if (NThumbWheelOldL == 0){
+        if (NThumbWheelL == 1) { ThumbWheelChange(1); }
+        else if (NThumbWheelL == 2) { ThumbWheelChange(0); }
+      }
+      else if (NThumbWheelOldL == 1){
+        if (NThumbWheelL == 2) { ThumbWheelChange(1); }
+        else if (NThumbWheelL == 0) { ThumbWheelChange(0); }
+      }
+      else if (NThumbWheelOldL == 2){
+        if (NThumbWheelL == 0) { ThumbWheelChange(1); }
+        else if (NThumbWheelL == 1) { ThumbWheelChange(0); }
+      }
+      
+      if (NThumbWheelOldR == 0){
+        if (NThumbWheelR == 1) { ThumbWheelChange(3); }
+        else if (NThumbWheelR == 2) { ThumbWheelChange(2); }
+      }
+      else if (NThumbWheelOldR == 1){
+        if (NThumbWheelR == 2) { ThumbWheelChange(3); }
+        else if (NThumbWheelR == 0) { ThumbWheelChange(2); }
+      }
+      else if (NThumbWheelOldR == 2){
+        if (NThumbWheelR == 0) { ThumbWheelChange(3); }
+        else if (NThumbWheelR == 1) { ThumbWheelChange(2); }
+      }
+      
+      NThumbWheelOldL = NThumbWheelL;
+      NThumbWheelOldR = NThumbWheelR;
+      
+      // reset button press
+      //    Button allocation:
+      //    0   1   2   3
+      //    L+  L-  R+  R-
+      for (int m = 0; m < 2; m++) {
+        if (tStartLoop/1000 - tThumbWheelChange[m] > tThumbWheelLatched){
+          Joystick.releaseButton(NButtonThumbWheel[2*m]);
+          Joystick.releaseButton(NButtonThumbWheel[2*m+1]);
+          tThumbWheelChange[m] = 0;
+        }
+      }
+    }
+    else{ // Initialistion
+      NThumbWheelOldL = NThumbWheelL;
+      NThumbWheelOldR = NThumbWheelR;
+      BThumbWheelInit = true;
+    }
+  }
+//  else {
+//    // in case of thumb wheel error    
+//    for (int m = 0; m < 4; m++) {
+//      Joystick.releaseButton(NButtonThumbWheel[2*m+1]);
+//    }
+//    tThumbWheelChange[0] = tStartLoop/1000;
+//    tThumbWheelChange[1] = tStartLoop/1000;
+//  }
+}
+
+void ThumbWheelChange(int NAction) {
+  // Button allocation:
+  // 0   1   2   3
+  // L+  L-  R+  R-
+  
+  if (NAction < 2) {
+    if (tThumbWheelChange[0] == 0) { 
+      Joystick.pressButton(NButtonThumbWheel[NAction]);
+    }
+    tThumbWheelChange[0] = tStartLoop/1000;
+  }
+  else {
+    if (tThumbWheelChange[1] == 0) { 
+      Joystick.pressButton(NButtonThumbWheel[NAction]);
+    }
+    tThumbWheelChange[0] = tStartLoop/1000;
+    tThumbWheelChange[1] = tStartLoop/1000;
+  }
 }

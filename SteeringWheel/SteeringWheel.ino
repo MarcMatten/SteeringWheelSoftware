@@ -6,11 +6,11 @@ int NPinClutchR = A1;
 int NButtons = 12; // number of buttons defined in NButtonPin
 
 // Pins for shift register
-int NShiftRegister = 1;
+const int NShiftRegister = 1;
 int NPinIOSelect = 1;    // SR Pin 15.
 int NPinClockPulse = 0;  //SR Pin 7. 
 int NPinDataOut = 2;     //SR Pin 13.
-int NStateShiftRegister[8];
+int NStateShiftRegister[8*NShiftRegister];
 
 // global for Clutch Paddle logic
 int rClutchRemappedL = 0;
@@ -43,7 +43,7 @@ int NThumbWheelErrorR = 0;
 bool BThumbWheelInit = false;
 bool BThumbWheelError = false;
 unsigned long tThumbWheelChange[] = {0, 0};
-unsigned long tThumbWheelLatched = 50; // 750;
+unsigned long tThumbWheelLatched = 33;
 //                         L+  L-  R+  R-
 int NButtonThumbWheel[] = {12, 13, 14, 15};
 
@@ -215,7 +215,7 @@ void ReadShiftRegister() {
   digitalWrite(NPinClockPulse, 1);  // set clock pin high, data loaded into SR
   digitalWrite(NPinIOSelect, 1);    // disable parallel inputs and enable serial output 
 
-  for(int j = 0; j < 8  ; j++) {   //sets integer to values 0 through 7 for all 8 bits
+  for(int j = 0; j < 8*NShiftRegister ; j++) {   //sets integer to values 0 through 7 for all 8 bits
     NStateShiftRegister[j] = digitalRead(NPinDataOut);
     digitalWrite(NPinClockPulse, LOW);  //after each bit is logged, 
     digitalWrite(NPinClockPulse, HIGH); //pulses clock to get next bit

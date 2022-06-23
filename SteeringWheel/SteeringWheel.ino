@@ -6,9 +6,11 @@ int NPinClutchR = A1;
 int NButtons = 12; // number of buttons defined in NButtonPin
 
 // Pins for shift register
+int NShiftRegister = 1;
 int NPinIOSelect = 1;    // SR Pin 15.
 int NPinClockPulse = 0;  //SR Pin 7. 
 int NPinDataOut = 2;     //SR Pin 13.
+int NStateShiftRegister[8];
 
 // global for Clutch Paddle logic
 int rClutchRemappedL = 0;
@@ -29,7 +31,7 @@ unsigned long tStartModeThreshold = 1000;
 // timer settings for button latch and threshold times
 unsigned long tButtonThreshold[] = {100, 100, 500, 100, 250, 100, 100, 100, 100, 0, 100, 0};
 unsigned long tButtonPressed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-unsigned long tButtonSet[] = {32, 32, 32, 32, 32, 32, 32, 32, 32, 32, 0, 32};
+unsigned long tButtonSet[] = {33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33};
 
 // globals for thumb wheels
 int NThumbWheelMapL[3] = {1, 2, 3};
@@ -41,7 +43,7 @@ int NThumbWheelErrorR = 0;
 bool BThumbWheelInit = false;
 bool BThumbWheelError = false;
 unsigned long tThumbWheelChange[] = {0, 0};
-unsigned long tThumbWheelLatched =750;
+unsigned long tThumbWheelLatched = 50; // 750;
 //                         L+  L-  R+  R-
 int NButtonThumbWheel[] = {12, 13, 14, 15};
 
@@ -97,16 +99,16 @@ void loop() {
   }
 
   // read raw clutch signals and pass them to the clutch logic
-  int rClutch = Clutch(analogRead(NPinClutchL), analogRead(NPinClutchR), tStartLoop/1000);
+  Clutch(analogRead(NPinClutchL), analogRead(NPinClutchR));
 
-  ThumbWheels(tStartLoop/1000);
+  ReadShiftRegister();
 
-  // set clutch output
-  Joystick.setXAxis(rClutch);
+  ThumbWheels();
   
   // send game controller state to PC
   Joystick.sendState();
-  
+
+  // for timing
   //Serial.println(micros() - tStartLoop);
   
   delay(10); // allow for enough time to finish previous sending
@@ -134,21 +136,19 @@ void Button(int NButton, int ButtonState) {
 }
 
 
-int Clutch(int rClutchRawL, int rClutchRawR, unsigned long tNow) {  
+void Clutch(int rClutchRawL, int rClutchRawR) {  
   int rClutch = 0;
   
   // re-map clutch paddles to calibrated range
   int rClutchL = map(rClutchRawL, rClutchMinL, rClutchMaxL, 0, 1023);
   int rClutchR = map(rClutchRawR, rClutchMinR, rClutchMaxR, 0, 1023);
 
-  // unsigned long tNow = millis();
-
   // start mode logic
   if (rClutchL >= 1000 && rClutchR >= 1000) {
     if (BBothPaddlesPressed == false) {
       // start timer when both paddles are pressed
       BBothPaddlesPressed = true;
-      tBothPaddlesPressed = tNow;
+      tBothPaddlesPressed = tStartLoop/1000;
     }
   }
   else {
@@ -167,7 +167,7 @@ int Clutch(int rClutchRawL, int rClutchRawR, unsigned long tNow) {
 
   // engage start mode when both paddles fully engaged for long enough
   if (BBothPaddlesPressed == true) {
-    if ((tNow - tBothPaddlesPressed) >= tStartModeThreshold) {
+    if ((tStartLoop/1000 - tBothPaddlesPressed) >= tStartModeThreshold) {
       if (BStartMode == false) {
         BStartMode = true;
         Serial.write(true);
@@ -204,35 +204,26 @@ int Clutch(int rClutchRawL, int rClutchRawR, unsigned long tNow) {
     rClutch = max(rClutchL, rClutchR);    
   }
 
-  return rClutch;
+  Joystick.setXAxis(rClutch);
 }
 
 
-void ThumbWheels(unsigned long tNow) {
-  // read in shift register states
-  uint16_t  dataIn = 0; //Swap out byte for uint16_t or uint32_t
-  int dataIn2[] = {0, 0, 0, 0, 0, 0, 0, 0};
-  int value;
-  int NState[8];
-  
+void ReadShiftRegister() {
+  // read in shift register states  
   digitalWrite(NPinIOSelect, 0);    // enables parallel inputs
   digitalWrite(NPinClockPulse, 0);  // start clock pin low
   digitalWrite(NPinClockPulse, 1);  // set clock pin high, data loaded into SR
   digitalWrite(NPinIOSelect, 1);    // disable parallel inputs and enable serial output 
 
-  for(int j = 0; j < 8  ; j++) {         //sets integer to values 0 through 7 for all 8 bits
-      value = digitalRead(NPinDataOut); //reads data from SR serial data out pin
-      NState[j] = value;
-      if (value) {
-        int a = (1 << j);       // shifts bit to its proper place in sequence. 
-                                /*for more information see Arduino "BitShift" */
-        dataIn = dataIn | a;    //combines data from shifted bits to form a single 8-bit number
-                                /*for more information see Arduino "Bitwise operators" */
-        }
-        digitalWrite(NPinClockPulse, LOW);  //after each bit is logged, 
-        digitalWrite(NPinClockPulse, HIGH); //pulses clock to get next bit
-      }
-      
+  for(int j = 0; j < 8  ; j++) {   //sets integer to values 0 through 7 for all 8 bits
+    NStateShiftRegister[j] = digitalRead(NPinDataOut);
+    digitalWrite(NPinClockPulse, LOW);  //after each bit is logged, 
+    digitalWrite(NPinClockPulse, HIGH); //pulses clock to get next bit
+  }
+}
+
+
+void ThumbWheels() {      
   // Interpret shift register states  
   int NStateCountL = 0;
   int NStateCountR = 0;
@@ -242,12 +233,12 @@ void ThumbWheels(unsigned long tNow) {
   for(int k=0; k <3; k++)
   {
     // how many pins are high
-    NStateCountL += NState[NThumbWheelMapL[k]];
-    NStateCountR += NState[NThumbWheelMapR[k]];
+    NStateCountL += NStateShiftRegister[NThumbWheelMapL[k]];
+    NStateCountR += NStateShiftRegister[NThumbWheelMapR[k]];
 
     // which pin is high
-    if (NState[NThumbWheelMapL[k]] == 1){ NThumbWheelL = k; }    
-    if (NState[NThumbWheelMapR[k]] == 1){ NThumbWheelR = k; }
+    if (NStateShiftRegister[NThumbWheelMapL[k]] == 1){ NThumbWheelL = k; }    
+    if (NStateShiftRegister[NThumbWheelMapR[k]] == 1){ NThumbWheelR = k; }
   }
 
   // Detect Thumb Wheel Errors
@@ -349,7 +340,6 @@ void ThumbWheelChange(int NAction) {
     if (tThumbWheelChange[1] == 0) { 
       Joystick.pressButton(NButtonThumbWheel[NAction]);
     }
-    tThumbWheelChange[0] = tStartLoop/1000;
     tThumbWheelChange[1] = tStartLoop/1000;
   }
 }

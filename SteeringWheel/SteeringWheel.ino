@@ -109,7 +109,7 @@ void loop() {
   }
 
   // read raw clutch signals and pass them to the clutch logic
-  Clutch(analogRead(NPinClutchL), analogRead(NPinClutchR));
+  Clutch(analogRead(NPinClutchL), analogRead(NPinClutchR));   
 
   ReadShiftRegister();
 
@@ -288,19 +288,14 @@ void ThumbWheels() {
         }
       }  
     }
-    // int NThumbWheelL = ThumbWheelFilterL(NThumbWheelTempL);
-    //Serial.println(NThumbWheelL);
-    //int NThumbWheelR = ThumbWheelFilterR(NThumbWheelTempR);
   
     // Detect Thumb Wheel Errors
     if (NStateCountL != 1 || NStateCountR != 1) {
       // error when not exactly one pin high per thumb wheel
-      // BThumbWheelError = true;
-      // tThumbWheelNoError = 0;
+
       // Left Thumb Wheel Error
       if (NStateCountL != 1) { 
         NThumbWheelErrorL += 1;
-        // if (NThumbWheelErrorL > 10){ Serial.print("TWEL"); Serial.println(NStateCountL);} }
         if ((700 + NThumbWheelErrorL) % 1000 == 0){
           BThumbWheelError = true;
           tThumbWheelNoError = 0;
@@ -312,7 +307,6 @@ void ThumbWheels() {
       // Right Thumb Wheel Error 
       if (NStateCountR != 1) { 
         NThumbWheelErrorR += 1;
-        // if (NThumbWheelErrorR > 10){ Serial.print("TWER"); Serial.println(NStateCountR);} } 
         if ((700 + NThumbWheelErrorR) % 1000 == 0){
           BThumbWheelError = true;
           tThumbWheelNoError = 0;
@@ -329,7 +323,7 @@ void ThumbWheels() {
         }
         else if (tStartLoop/1000 - tThumbWheelNoError > 10000) {
           // recover if no error for 10 s
-          Serial.print("TWOK");
+          Serial.println("TWOK");
           NThumbWheelErrorL = 0;
           NThumbWheelErrorR = 0;
           BThumbWheelError = false;
@@ -337,13 +331,9 @@ void ThumbWheels() {
         if (NThubWheelErrorTotal > NThubWheelErrorAllowed) {
           // deactivate Thumbwheels when too many errors
           BThumbWheelDeactivated = true;
-          Serial.print("TWOFF");
+          Serial.println("TWOFF");
           }
       }
-      // No Error
-      //BThumbWheelError = false;
-      // NThumbWheelErrorL = 0;
-      // NThumbWheelErrorR = 0;
     }
   
     // Thumb Wheel Switch detection
@@ -401,14 +391,6 @@ void ThumbWheels() {
         BThumbWheelInit = true;
       }
     }
-  //  else {
-  //    // in case of thumb wheel error    
-  //    for (int m = 0; m < 4; m++) {
-  //      Joystick.releaseButton(NButtonThumbWheel[2*m+1]);
-  //    }
-  //    tThumbWheelChange[0] = tStartLoop/1000;
-  //    tThumbWheelChange[1] = tStartLoop/1000;
-  //  }
   }
 }
 
@@ -430,17 +412,6 @@ void ThumbWheelChange(int NAction) {
     tThumbWheelChange[1] = tStartLoop/1000;
   }
 }
-
-//int ThumbWheelFilterL(int N) {
-//  int* temp = NThumbWheelLBuffer;
-//  int mean = N;
-//  NThumbWheelLBuffer[0] = N;
-//  for(int i=0; i < 19; i++) {
-//    NThumbWheelLBuffer[i+1] = temp[i];
-//    mean += temp[i];
-//  }
-//  return mean/20;
-//}
 
 int ThumbWheelFilterR(int N) {
   int* temp = NThumbWheelRBuffer;

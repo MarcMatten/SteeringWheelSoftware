@@ -43,9 +43,15 @@ int NThumbWheelErrorR = 0;
 bool BThumbWheelInit = false;
 bool BThumbWheelError = false;
 unsigned long tThumbWheelChange[] = {0, 0};
-unsigned long tThumbWheelLatched = 33;
+unsigned long tThumbWheelLatched = 80;
+unsigned long tThumbWheelNoError = 0;
+int NThubWheelErrorTotal = 0;
+int NThubWheelErrorAllowed = 5;
+bool BThumbWheelDeactivated = false;
 //                         L+  L-  R+  R-
 int NButtonThumbWheel[] = {12, 13, 14, 15};
+int NThumbWheelLBuffer[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int NThumbWheelRBuffer[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 // buffer definition for serial read
 const int BUFFER_SIZE = 4;
@@ -223,106 +229,145 @@ void ReadShiftRegister() {
 }
 
 
-void ThumbWheels() {      
-  // Interpret shift register states  
-  int NStateCountL = 0;
-  int NStateCountR = 0;
-  int NThumbWheelL = 0;
-  int NThumbWheelR = 0;
-  
-  for(int k=0; k <3; k++)
-  {
-    // how many pins are high
-    NStateCountL += NStateShiftRegister[NThumbWheelMapL[k]];
-    NStateCountR += NStateShiftRegister[NThumbWheelMapR[k]];
-
-    // which pin is high
-    if (NStateShiftRegister[NThumbWheelMapL[k]] == 1){ NThumbWheelL = k; }    
-    if (NStateShiftRegister[NThumbWheelMapR[k]] == 1){ NThumbWheelR = k; }
-  }
-
-  // Detect Thumb Wheel Errors
-  if (NStateCountL != 1 || NStateCountR != 1) {
-    // error when not exactly one pin high per thumg wheel
-    BThumbWheelError = true;
-    // Left Thumb Wheel Error
-    if (NStateCountL != 1) { 
-      NThumbWheelErrorL += 1;
-      if (NThumbWheelErrorL >= 10){ Serial.print("ERROR: Left Thumb Wheel reading "); Serial.print(NStateCountL); Serial.println(" states!");} }
-    // Right Thumb Wheel Error 
-    if (NStateCountR != 1) { 
-      NThumbWheelErrorR += 1;
-      if (NThumbWheelErrorR >= 10){ Serial.print("ERROR: Right Thumb Wheel reading "); Serial.print(NStateCountR); Serial.println(" states!");} } 
-  }
-  else{
-    // No Error
-    BThumbWheelError = false;
-    NThumbWheelErrorL = 0;
-    NThumbWheelErrorR = 0;
-  }
-
-  // Thumb Wheel Switch detection
-  // Button allocation:
-  // 0   1   2   3
-  // L+  L-  R+  R-
+void ThumbWheels() {
+  if (BThumbWheelDeactivated != true) {
+    // Interpret shift register states  
+    int NStateCountL = 0;
+    int NStateCountR = 0;
+    int NThumbWheelTempL = 0;
+    int NThumbWheelTempR = 0;
     
-  if (BThumbWheelError == false) {
-    if (BThumbWheelInit == true){
-      if (NThumbWheelOldL == 0){
-        if (NThumbWheelL == 1) { ThumbWheelChange(1); }
-        else if (NThumbWheelL == 2) { ThumbWheelChange(0); }
+    for(int k=0; k <3; k++)
+    {
+      // how many pins are high
+      NStateCountL += NStateShiftRegister[NThumbWheelMapL[k]];
+      NStateCountR += NStateShiftRegister[NThumbWheelMapR[k]];
+  
+      // which pin is high
+      if (NStateShiftRegister[NThumbWheelMapL[k]] == 1){ NThumbWheelTempL = k; }    
+      if (NStateShiftRegister[NThumbWheelMapR[k]] == 1){ NThumbWheelTempR = k; }
+    }
+
+    int NThumbWheelL = ThumbWheelFilterL(NThumbWheelTempL);
+    int NThumbWheelR = ThumbWheelFilterR(NThumbWheelTempR);
+  
+    // Detect Thumb Wheel Errors
+    if (NStateCountL != 1 || NStateCountR != 1) {
+      // error when not exactly one pin high per thumb wheel
+      // BThumbWheelError = true;
+      // tThumbWheelNoError = 0;
+      // Left Thumb Wheel Error
+      if (NStateCountL != 1) { 
+        NThumbWheelErrorL += 1;
+        // if (NThumbWheelErrorL > 10){ Serial.print("TWEL"); Serial.println(NStateCountL);} }
+        if ((700 + NThumbWheelErrorL) % 1000 == 0){
+          BThumbWheelError = true;
+          tThumbWheelNoError = 0;
+          Serial.print("TWEL"); 
+          Serial.println(NStateCountL);
+          NThubWheelErrorTotal = NThubWheelErrorTotal + 1;
+        } 
       }
-      else if (NThumbWheelOldL == 1){
-        if (NThumbWheelL == 2) { ThumbWheelChange(1); }
-        else if (NThumbWheelL == 0) { ThumbWheelChange(0); }
+      // Right Thumb Wheel Error 
+      if (NStateCountR != 1) { 
+        NThumbWheelErrorR += 1;
+        // if (NThumbWheelErrorR > 10){ Serial.print("TWER"); Serial.println(NStateCountR);} } 
+        if ((700 + NThumbWheelErrorR) % 1000 == 0){
+          BThumbWheelError = true;
+          tThumbWheelNoError = 0;
+          Serial.print("TWER");
+          Serial.println(NStateCountR);
+          NThubWheelErrorTotal = NThubWheelErrorTotal + 1;
+        }
+      } 
+    }
+    else{
+      if (BThumbWheelError == true) {
+        if (tThumbWheelNoError == 0) {
+          tThumbWheelNoError = tStartLoop/1000;
+        }
+        else if (tStartLoop/1000 - tThumbWheelNoError > 10000) {
+          // recover if no error for 10 s
+          Serial.print("TWOK");
+          NThumbWheelErrorL = 0;
+          NThumbWheelErrorR = 0;
+          BThumbWheelError = false;
+        }
+        if (NThubWheelErrorTotal > NThubWheelErrorAllowed) {
+          // deactivate Thumbwheels when too many errors
+          BThumbWheelDeactivated = true;
+          Serial.print("TWOFF");
+          }
       }
-      else if (NThumbWheelOldL == 2){
-        if (NThumbWheelL == 0) { ThumbWheelChange(1); }
-        else if (NThumbWheelL == 1) { ThumbWheelChange(0); }
-      }
+      // No Error
+      //BThumbWheelError = false;
+      // NThumbWheelErrorL = 0;
+      // NThumbWheelErrorR = 0;
+    }
+  
+    // Thumb Wheel Switch detection
+    // Button allocation:
+    // 0   1   2   3
+    // L+  L-  R+  R-
       
-      if (NThumbWheelOldR == 0){
-        if (NThumbWheelR == 1) { ThumbWheelChange(3); }
-        else if (NThumbWheelR == 2) { ThumbWheelChange(2); }
-      }
-      else if (NThumbWheelOldR == 1){
-        if (NThumbWheelR == 2) { ThumbWheelChange(3); }
-        else if (NThumbWheelR == 0) { ThumbWheelChange(2); }
-      }
-      else if (NThumbWheelOldR == 2){
-        if (NThumbWheelR == 0) { ThumbWheelChange(3); }
-        else if (NThumbWheelR == 1) { ThumbWheelChange(2); }
-      }
-      
-      NThumbWheelOldL = NThumbWheelL;
-      NThumbWheelOldR = NThumbWheelR;
-      
-      // reset button press
-      //    Button allocation:
-      //    0   1   2   3
-      //    L+  L-  R+  R-
-      for (int m = 0; m < 2; m++) {
-        if (tStartLoop/1000 - tThumbWheelChange[m] > tThumbWheelLatched){
-          Joystick.releaseButton(NButtonThumbWheel[2*m]);
-          Joystick.releaseButton(NButtonThumbWheel[2*m+1]);
-          tThumbWheelChange[m] = 0;
+    if (BThumbWheelError == false) {
+      if (BThumbWheelInit == true){
+        if (NThumbWheelOldL == 0){
+          if (NThumbWheelL == 1) { ThumbWheelChange(1); }
+          else if (NThumbWheelL == 2) { ThumbWheelChange(0); }
+        }
+        else if (NThumbWheelOldL == 1){
+          if (NThumbWheelL == 2) { ThumbWheelChange(1); }
+          else if (NThumbWheelL == 0) { ThumbWheelChange(0); }
+        }
+        else if (NThumbWheelOldL == 2){
+          if (NThumbWheelL == 0) { ThumbWheelChange(1); }
+          else if (NThumbWheelL == 1) { ThumbWheelChange(0); }
+        }
+        
+        if (NThumbWheelOldR == 0){
+          if (NThumbWheelR == 1) { ThumbWheelChange(3); }
+          else if (NThumbWheelR == 2) { ThumbWheelChange(2); }
+        }
+        else if (NThumbWheelOldR == 1){
+          if (NThumbWheelR == 2) { ThumbWheelChange(3); }
+          else if (NThumbWheelR == 0) { ThumbWheelChange(2); }
+        }
+        else if (NThumbWheelOldR == 2){
+          if (NThumbWheelR == 0) { ThumbWheelChange(3); }
+          else if (NThumbWheelR == 1) { ThumbWheelChange(2); }
+        }
+        
+        NThumbWheelOldL = NThumbWheelL;
+        NThumbWheelOldR = NThumbWheelR;
+        
+        // reset button press
+        //    Button allocation:
+        //    0   1   2   3
+        //    L+  L-  R+  R-
+        for (int m = 0; m < 2; m++) {
+          if (tStartLoop/1000 - tThumbWheelChange[m] > tThumbWheelLatched){
+            Joystick.releaseButton(NButtonThumbWheel[2*m]);
+            Joystick.releaseButton(NButtonThumbWheel[2*m+1]);
+            tThumbWheelChange[m] = 0;
+          }
         }
       }
+      else{ // Initialistion
+        NThumbWheelOldL = NThumbWheelL;
+        NThumbWheelOldR = NThumbWheelR;
+        BThumbWheelInit = true;
+      }
     }
-    else{ // Initialistion
-      NThumbWheelOldL = NThumbWheelL;
-      NThumbWheelOldR = NThumbWheelR;
-      BThumbWheelInit = true;
-    }
+  //  else {
+  //    // in case of thumb wheel error    
+  //    for (int m = 0; m < 4; m++) {
+  //      Joystick.releaseButton(NButtonThumbWheel[2*m+1]);
+  //    }
+  //    tThumbWheelChange[0] = tStartLoop/1000;
+  //    tThumbWheelChange[1] = tStartLoop/1000;
+  //  }
   }
-//  else {
-//    // in case of thumb wheel error    
-//    for (int m = 0; m < 4; m++) {
-//      Joystick.releaseButton(NButtonThumbWheel[2*m+1]);
-//    }
-//    tThumbWheelChange[0] = tStartLoop/1000;
-//    tThumbWheelChange[1] = tStartLoop/1000;
-//  }
 }
 
 void ThumbWheelChange(int NAction) {
@@ -342,4 +387,26 @@ void ThumbWheelChange(int NAction) {
     }
     tThumbWheelChange[1] = tStartLoop/1000;
   }
+}
+
+int ThumbWheelFilterL(int N) {
+  int* temp = NThumbWheelLBuffer;
+  int mean = N;
+  NThumbWheelLBuffer[0] = N;
+  for(int i=0; i < 19; i++) {
+    NThumbWheelLBuffer[i+1] = temp[i];
+    mean += temp[i];
+  }
+  return mean/20;
+}
+
+int ThumbWheelFilterR(int N) {
+  int* temp = NThumbWheelRBuffer;
+  int mean = N;
+  NThumbWheelRBuffer[0] = N;
+  for(int i=0; i < 19; i++) {
+    NThumbWheelRBuffer[i+1] = temp[i];
+    mean += temp[i];
+  }
+  return mean/20;
 }

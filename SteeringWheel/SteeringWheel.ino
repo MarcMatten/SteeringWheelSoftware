@@ -52,6 +52,10 @@ bool BThumbWheelDeactivated = false;
 int NButtonThumbWheel[] = {12, 13, 14, 15};
 int NThumbWheelLBuffer[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int NThumbWheelRBuffer[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int NThumbWheelCounterL = 0;
+int NThumbWheelCounterR = 0;
+int NThumbWheelOld2L = -1;
+int NThumbWheelOld2R = -1;
 
 // buffer definition for serial read
 const int BUFFER_SIZE = 4;
@@ -236,6 +240,8 @@ void ThumbWheels() {
     int NStateCountR = 0;
     int NThumbWheelTempL = 0;
     int NThumbWheelTempR = 0;
+    int NThumbWheelL = -1;
+    int NThumbWheelR = -1;
     
     for(int k=0; k <3; k++)
     {
@@ -244,12 +250,47 @@ void ThumbWheels() {
       NStateCountR += NStateShiftRegister[NThumbWheelMapR[k]];
   
       // which pin is high
-      if (NStateShiftRegister[NThumbWheelMapL[k]] == 1){ NThumbWheelTempL = k; }    
-      if (NStateShiftRegister[NThumbWheelMapR[k]] == 1){ NThumbWheelTempR = k; }
-    }
+      if (NStateShiftRegister[NThumbWheelMapL[k]] == 1){
+        if (NThumbWheelOld2L == -1){
+          NThumbWheelOld2L = k;
+        }
+        if (k == NThumbWheelOld2L) {
+          NThumbWheelCounterL += 1;
+        }
+        else{
+          NThumbWheelCounterL = 0;
+        }
+        
+        NThumbWheelOld2L = k;
+        
+        if (NThumbWheelCounterL > 4) {
+          NThumbWheelL = k;
+        }
+      }    
+      //if (NStateShiftRegister[NThumbWheelMapR[k]] == 1){ NThumbWheelTempR = k; }
 
-    int NThumbWheelL = ThumbWheelFilterL(NThumbWheelTempL);
-    int NThumbWheelR = ThumbWheelFilterR(NThumbWheelTempR);
+      
+      if (NStateShiftRegister[NThumbWheelMapR[k]] == 1){
+        if (NThumbWheelOld2R == -1){
+          NThumbWheelOld2R = k;
+        }
+        if (k == NThumbWheelOld2R) {
+          NThumbWheelCounterR += 1;
+        }
+        else{
+          NThumbWheelCounterR = 0;
+        }
+        
+        NThumbWheelOld2R = k;
+        
+        if (NThumbWheelCounterR > 4) {
+          NThumbWheelR = k;
+        }
+      }  
+    }
+    // int NThumbWheelL = ThumbWheelFilterL(NThumbWheelTempL);
+    //Serial.println(NThumbWheelL);
+    //int NThumbWheelR = ThumbWheelFilterR(NThumbWheelTempR);
   
     // Detect Thumb Wheel Errors
     if (NStateCountL != 1 || NStateCountR != 1) {
@@ -338,8 +379,9 @@ void ThumbWheels() {
           else if (NThumbWheelR == 1) { ThumbWheelChange(2); }
         }
         
-        NThumbWheelOldL = NThumbWheelL;
-        NThumbWheelOldR = NThumbWheelR;
+        if (NThumbWheelL != -1) { NThumbWheelOldL = NThumbWheelL; }
+        if (NThumbWheelR != -1) { NThumbWheelOldR = NThumbWheelR; }
+        //NThumbWheelOldR = NThumbWheelR;
         
         // reset button press
         //    Button allocation:
@@ -389,16 +431,16 @@ void ThumbWheelChange(int NAction) {
   }
 }
 
-int ThumbWheelFilterL(int N) {
-  int* temp = NThumbWheelLBuffer;
-  int mean = N;
-  NThumbWheelLBuffer[0] = N;
-  for(int i=0; i < 19; i++) {
-    NThumbWheelLBuffer[i+1] = temp[i];
-    mean += temp[i];
-  }
-  return mean/20;
-}
+//int ThumbWheelFilterL(int N) {
+//  int* temp = NThumbWheelLBuffer;
+//  int mean = N;
+//  NThumbWheelLBuffer[0] = N;
+//  for(int i=0; i < 19; i++) {
+//    NThumbWheelLBuffer[i+1] = temp[i];
+//    mean += temp[i];
+//  }
+//  return mean/20;
+//}
 
 int ThumbWheelFilterR(int N) {
   int* temp = NThumbWheelRBuffer;

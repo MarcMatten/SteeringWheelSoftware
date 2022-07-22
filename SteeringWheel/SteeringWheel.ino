@@ -41,7 +41,7 @@ int NThumbWheelOldR = 0;
 int NThumbWheelErrorL = 0;
 int NThumbWheelErrorR = 0;
 int NThumbWheelDirL = 0;
-int NThumbWheelBlockR = 0;
+int NThumbWheelDirR = 0;
 bool BThumbWheelInit = false;
 bool BThumbWheelError = false;
 unsigned long tThumbWheelChange[] = {0, 0}; // ms
@@ -93,7 +93,7 @@ void setup() {
 }
 
 void loop() {
-  tStartLoop = micros(); // for timer; 21.06.22: 670 µs
+  tStartLoop = micros(); // for timer; 21.06.22: 960-1080 µs
 
   // read bite point from serial
   if (Serial.available() == BUFFER_SIZE) {
@@ -123,7 +123,7 @@ void loop() {
   Joystick.sendState();
 
   // for timing
-  //Serial.println(micros() - tStartLoop);
+  // Serial.println(micros() - tStartLoop);
   
   delay(10); // allow for enough time to finish previous sending
   
@@ -254,6 +254,7 @@ void ThumbWheels() {
       NStateCountR += NStateShiftRegister[NThumbWheelMapR[k]];
   
       // which pin is high
+      // LEFT
       if (NStateShiftRegister[NThumbWheelMapL[k]] == 1){
         // get direction
         if ((NThumbWheelDirL == 0) & (NThumbWheelOld2L != k)) {
@@ -286,11 +287,26 @@ void ThumbWheels() {
         if (NThumbWheelCounterL > 0) {
           NThumbWheelL = k;
         }
-      }    
-      //if (NStateShiftRegister[NThumbWheelMapR[k]] == 1){ NThumbWheelTempR = k; }
-
+     }    
       
-      if (NStateShiftRegister[NThumbWheelMapR[k]] == 1){
+     // RIGHT
+     if (NStateShiftRegister[NThumbWheelMapR[k]] == 1){
+        // get direction
+        if ((NThumbWheelDirR == 0) & (NThumbWheelOld2R != k)) {
+          if (NThumbWheelOld2R == 0) {
+            if (k == 1) {NThumbWheelDirR = -1; }
+            else if (k == 2) {NThumbWheelDirR = 1; }            
+          }
+          if (NThumbWheelOld2R == 1) {
+            if (k == 2) {NThumbWheelDirR = -1; }
+            else if (k == 0) {NThumbWheelDirR = 1; }            
+          }          
+          if (NThumbWheelOld2R == 2) {
+            if (k == 0) {NThumbWheelDirR = -1; }
+            else if (k == 1) {NThumbWheelDirR = 1; }            
+          }
+          tThumbWheelDirSet[1] = tStartLoop/1000;
+        }
         if (NThumbWheelOld2R == -1){
           NThumbWheelOld2R = k;
         }
@@ -303,7 +319,7 @@ void ThumbWheels() {
         
         NThumbWheelOld2R = k;
         
-        if (NThumbWheelCounterR > 5) {
+        if (NThumbWheelCounterR > 0) {
           NThumbWheelR = k;
         }
       }  
@@ -415,11 +431,9 @@ void ThumbWheels() {
         NThumbWheelDirL = 0;
       }
       
-//      Serial.print(NThumbWheelL);
-//      Serial.print(" || ");
-//      Serial.print(NThumbWheelDirL);
-//      Serial.print(" || ");
-//      Serial.println(NThumbWheelOld2L);
+      if (tStartLoop/1000 - tThumbWheelDirSet[1] >= tThumbWheelDirLock) {
+        NThumbWheelDirR = 0;
+      }
     }
   }
 }
@@ -436,14 +450,14 @@ void ThumbWheelChange(int NAction) {
     }
     tThumbWheelChange[0] = tStartLoop/1000;
     tThumbWheelDirSet[0] = tThumbWheelChange[0];
-    // NThumbWheelDirL = 0;
   }
   else {
     if (tThumbWheelChange[1] == 0) { 
-      Joystick.pressButton(NButtonThumbWheel[NAction]);
+      if (NAction == 2 & NThumbWheelDirR != -1) { Joystick.pressButton(NButtonThumbWheel[NAction]); }
+      if (NAction == 3 & NThumbWheelDirR != 1) { Joystick.pressButton(NButtonThumbWheel[NAction]); }
     }
     tThumbWheelChange[1] = tStartLoop/1000;
-    NThumbWheelBlockR = 0;
+    tThumbWheelDirSet[1] = tThumbWheelChange[1];
   }
 }
 

@@ -24,14 +24,14 @@ bool BBothPaddlesPressed = false;
 bool BStartMode = false;
 bool BLeftIsBitePaddle = false;
 bool BRightIsBitePaddle = false;
-unsigned long tClutchStartMode = 0;
-unsigned long tBothPaddlesPressed = 0;
-unsigned long tStartModeThreshold = 1000;
+unsigned long tClutchStartMode = 0; // ms
+unsigned long tBothPaddlesPressed = 0; // ms
+unsigned long tStartModeThreshold = 1000; // ms
 
 // timer settings for button latch and threshold times
-unsigned long tButtonThreshold[] = {100, 100, 500, 100, 250, 100, 100, 100, 100, 0, 100, 0};
-unsigned long tButtonPressed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-unsigned long tButtonSet[] = {33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33};
+unsigned long tButtonThreshold[] = {100, 100, 500, 100, 250, 100, 100, 100, 100, 0, 100, 0}; // ms
+unsigned long tButtonPressed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // ms
+unsigned long tButtonSet[] = {33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33}; // ms
 
 // globals for thumb wheels
 int NThumbWheelMapL[3] = {1, 2, 3};
@@ -40,11 +40,15 @@ int NThumbWheelOldL = 0;
 int NThumbWheelOldR = 0;
 int NThumbWheelErrorL = 0;
 int NThumbWheelErrorR = 0;
+int NThumbWheelDirL = 0;
+int NThumbWheelBlockR = 0;
 bool BThumbWheelInit = false;
 bool BThumbWheelError = false;
-unsigned long tThumbWheelChange[] = {0, 0};
-unsigned long tThumbWheelLatched = 80;
-unsigned long tThumbWheelNoError = 0;
+unsigned long tThumbWheelChange[] = {0, 0}; // ms
+unsigned long tThumbWheelLatched = 35; // 35; // ms
+unsigned long tThumbWheelNoError = 0; // ms
+unsigned long tThumbWheelDirSet[] = {0, 0}; // ms
+unsigned long tThumbWheelDirLock = 250; // ms
 int NThubWheelErrorTotal = 0;
 int NThubWheelErrorAllowed = 5;
 bool BThumbWheelDeactivated = false;
@@ -251,6 +255,22 @@ void ThumbWheels() {
   
       // which pin is high
       if (NStateShiftRegister[NThumbWheelMapL[k]] == 1){
+        // get direction
+        if ((NThumbWheelDirL == 0) & (NThumbWheelOld2L != k)) {
+          if (NThumbWheelOld2L == 0) {
+            if (k == 1) {NThumbWheelDirL = -1; }
+            else if (k == 2) {NThumbWheelDirL = 1; }            
+          }
+          if (NThumbWheelOld2L == 1) {
+            if (k == 2) {NThumbWheelDirL = -1; }
+            else if (k == 0) {NThumbWheelDirL = 1; }            
+          }          
+          if (NThumbWheelOld2L == 2) {
+            if (k == 0) {NThumbWheelDirL = -1; }
+            else if (k == 1) {NThumbWheelDirL = 1; }            
+          }
+          tThumbWheelDirSet[0] = tStartLoop/1000;
+        }
         if (NThumbWheelOld2L == -1){
           NThumbWheelOld2L = k;
         }
@@ -263,7 +283,7 @@ void ThumbWheels() {
         
         NThumbWheelOld2L = k;
         
-        if (NThumbWheelCounterL > 4) {
+        if (NThumbWheelCounterL > 0) {
           NThumbWheelL = k;
         }
       }    
@@ -283,7 +303,7 @@ void ThumbWheels() {
         
         NThumbWheelOld2R = k;
         
-        if (NThumbWheelCounterR > 4) {
+        if (NThumbWheelCounterR > 5) {
           NThumbWheelR = k;
         }
       }  
@@ -390,6 +410,16 @@ void ThumbWheels() {
         NThumbWheelOldR = NThumbWheelR;
         BThumbWheelInit = true;
       }
+
+      if (tStartLoop/1000 - tThumbWheelDirSet[0] >= tThumbWheelDirLock) {
+        NThumbWheelDirL = 0;
+      }
+      
+//      Serial.print(NThumbWheelL);
+//      Serial.print(" || ");
+//      Serial.print(NThumbWheelDirL);
+//      Serial.print(" || ");
+//      Serial.println(NThumbWheelOld2L);
     }
   }
 }
@@ -401,15 +431,19 @@ void ThumbWheelChange(int NAction) {
   
   if (NAction < 2) {
     if (tThumbWheelChange[0] == 0) { 
-      Joystick.pressButton(NButtonThumbWheel[NAction]);
+      if (NAction == 0 & NThumbWheelDirL != -1) { Joystick.pressButton(NButtonThumbWheel[NAction]); }
+      if (NAction == 1 & NThumbWheelDirL != 1) { Joystick.pressButton(NButtonThumbWheel[NAction]); }
     }
     tThumbWheelChange[0] = tStartLoop/1000;
+    tThumbWheelDirSet[0] = tThumbWheelChange[0];
+    // NThumbWheelDirL = 0;
   }
   else {
     if (tThumbWheelChange[1] == 0) { 
       Joystick.pressButton(NButtonThumbWheel[NAction]);
     }
     tThumbWheelChange[1] = tStartLoop/1000;
+    NThumbWheelBlockR = 0;
   }
 }
 

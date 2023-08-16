@@ -1,12 +1,12 @@
 // Pin Mapping for buttons and clutch
-int NButtonPin[] = {A3, 3, 4, 5, 6, 7, 8, 9, 16, 14, 10, 15};
+int NButtonPin[] = {3, 4, 5, 6, 7, 8, 9, A3, 16, 14, 10, 15};
 int NPinClutchL = A0;
 int NPinClutchR = A1;
 
 int NButtons = 12; // number of buttons defined in NButtonPin
 
 // Pins for shift register
-const int NShiftRegister = 1;
+const int NShiftRegister = 4; // 1;
 int NPinIOSelect = 1;    // SR Pin 15.
 int NPinClockPulse = 0;  //SR Pin 7. 
 int NPinDataOut = 2;     //SR Pin 13.
@@ -29,13 +29,13 @@ unsigned long tBothPaddlesPressed = 0; // ms
 unsigned long tStartModeThreshold = 1000; // ms
 
 // timer settings for button latch and threshold times
-unsigned long tButtonThreshold[] = {100, 100, 500, 100, 250, 100, 100, 100, 100, 0, 100, 0}; // ms
+unsigned long tButtonThreshold[] = {100, 0, 100, 500, 250, 100, 100, 100, 100, 0, 100, 0}; // ms
 unsigned long tButtonPressed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // ms
 unsigned long tButtonSet[] = {33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33}; // ms
 
 // globals for thumb wheels
-int NThumbWheelMapL[3] = {1, 2, 3};
-int NThumbWheelMapR[3] = {7, 6, 5};
+int NThumbWheelMapL[3] = {11, 10, 9};
+int NThumbWheelMapR[3] = {25, 26, 27}; // {7, 6, 5};
 int NThumbWheelOldL = 0;
 int NThumbWheelOldR = 0;
 int NThumbWheelErrorL = 0;
@@ -52,14 +52,25 @@ unsigned long tThumbWheelDirLock = 250; // ms
 int NThubWheelErrorTotal = 0;
 int NThubWheelErrorAllowed = 5;
 bool BThumbWheelDeactivated = false;
-//                         L+  L-  R+  R-
-int NButtonThumbWheel[] = {12, 13, 14, 15};
+//                         L-  L+  R-  R+
+int NButtonThumbWheel[] = {14, 15, 12, 13};
 int NThumbWheelLBuffer[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int NThumbWheelRBuffer[20] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 int NThumbWheelCounterL = 0;
 int NThumbWheelCounterR = 0;
 int NThumbWheelOld2L = -1;
 int NThumbWheelOld2R = -1;
+
+// Rotary Read
+int NRotaryMapL[12] = {7, 6, 5, 4, 3, 2, 1, 0, 15, 14, 13, 12};
+int NRotaryMapR[12] = {23, 22, 21, 20, 19, 18, 17, 16, 31, 30, 29, 28};
+int NRotaryButtonStartL = 16;
+int NRotaryButtonStartR = 28;
+
+// Spares pins
+int NPinAnaSpare = A2;
+int NShiftRegisterSpareL = 8;
+int NShiftRegisterSpareR = 24;
 
 // buffer definition for serial read
 const int BUFFER_SIZE = 4;
@@ -118,6 +129,8 @@ void loop() {
   ReadShiftRegister();
 
   ThumbWheels();
+
+  Rotaries();
   
   // send game controller state to PC
   Joystick.sendState();
@@ -233,7 +246,9 @@ void ReadShiftRegister() {
     NStateShiftRegister[j] = digitalRead(NPinDataOut);
     digitalWrite(NPinClockPulse, LOW);  //after each bit is logged, 
     digitalWrite(NPinClockPulse, HIGH); //pulses clock to get next bit
+    // Serial.print(NStateShiftRegister[j]);
   }
+  // Serial.println("");
 }
 
 
@@ -470,4 +485,30 @@ int ThumbWheelFilterR(int N) {
     mean += temp[i];
   }
   return mean/20;
+}
+
+
+void Rotaries() {
+  // Left
+  for(int i = 0; i < 12 ; i++) {
+    if (NStateShiftRegister[NRotaryMapL[i]] == 1) {
+      Joystick.pressButton(NRotaryButtonStartL + i);
+    }
+    else
+    {      
+      Joystick.releaseButton(NRotaryButtonStartL + i);
+    }
+  }
+
+  // Right
+  for(int i = 0; i < 12 ; i++) {
+    if (NStateShiftRegister[NRotaryMapR[i]] == 1) {
+      Joystick.pressButton(NRotaryButtonStartR + i);
+    }
+    else
+    {      
+      Joystick.releaseButton(NRotaryButtonStartR + i);
+    }
+  }
+
 }

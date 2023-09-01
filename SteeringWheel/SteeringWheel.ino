@@ -29,13 +29,13 @@ unsigned long tBothPaddlesPressed = 0; // ms
 unsigned long tStartModeThreshold = 1000; // ms
 
 // timer settings for button latch and threshold times
-unsigned long tButtonThreshold[] = {100, 0, 100, 500, 250, 100, 100, 100, 100, 0, 100, 0}; // ms
+unsigned long tButtonThreshold[] = {100, 0, 100, 500, 500, 100, 100, 100, 100, 0, 100, 0}; // ms
 unsigned long tButtonPressed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // ms
 unsigned long tButtonSet[] = {33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33}; // ms
 
 // globals for thumb wheels
-int NThumbWheelMapL[3] = {11, 10, 9};
-int NThumbWheelMapR[3] = {25, 26, 27}; // {7, 6, 5};
+int NThumbWheelMapL[3] = {25, 26, 27};
+int NThumbWheelMapR[3] = {9, 10, 11}; // {7, 6, 5};
 int NThumbWheelOldL = 0;
 int NThumbWheelOldR = 0;
 int NThumbWheelErrorL = 0;

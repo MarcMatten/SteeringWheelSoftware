@@ -5,9 +5,9 @@ import time
 
 PortList = ListPorts.comports()
 
-for i in range(1, len(PortList)):
-    print(PortList[i].device)
-    ser = serial.Serial(PortList[i].device, 9600, timeout=1, writeTimeout=0)
+for i in PortList:
+    print(i.device)
+    ser = serial.Serial(i.device, 9600, timeout=1, writeTimeout=0)
     time.sleep(0.5)
     ser.write(struct.pack('<f', 0.25))
 

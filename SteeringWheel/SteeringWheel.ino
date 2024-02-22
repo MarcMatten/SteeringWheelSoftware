@@ -261,6 +261,13 @@ void ThumbWheels() {
     int NThumbWheelTempR = 0;
     int NThumbWheelL = -1;
     int NThumbWheelR = -1;
+
+    // Serial.print for debugging
+    // Serial.print("L:");
+    // Serial.print(NStateShiftRegister[NThumbWheelMapL[0]] + 2 * NStateShiftRegister[NThumbWheelMapL[1]] + 4 * NStateShiftRegister[NThumbWheelMapL[2]]);
+    // Serial.print(",");
+    // Serial.print("R:");
+    // Serial.println(NStateShiftRegister[NThumbWheelMapR[0]] + 2 * NStateShiftRegister[NThumbWheelMapR[1]] + 4 * NStateShiftRegister[NThumbWheelMapR[2]]);
     
     for(int k=0; k <3; k++)
     {
@@ -340,52 +347,52 @@ void ThumbWheels() {
       }  
     }
   
-    // Detect Thumb Wheel Errors
-    if (NStateCountL != 1 || NStateCountR != 1) {
-      // error when not exactly one pin high per thumb wheel
+    // // Detect Thumb Wheel Errors
+    // if (NStateCountL != 1 || NStateCountR != 1) {
+    //   // error when not exactly one pin high per thumb wheel
 
-      // Left Thumb Wheel Error
-      if (NStateCountL != 1) { 
-        NThumbWheelErrorL += 1;
-        if ((700 + NThumbWheelErrorL) % 1000 == 0){
-          BThumbWheelError = true;
-          tThumbWheelNoError = 0;
-          Serial.print("TWEL"); 
-          Serial.println(NStateCountL);
-          NThubWheelErrorTotal = NThubWheelErrorTotal + 1;
-        } 
-      }
-      // Right Thumb Wheel Error 
-      if (NStateCountR != 1) { 
-        NThumbWheelErrorR += 1;
-        if ((700 + NThumbWheelErrorR) % 1000 == 0){
-          BThumbWheelError = true;
-          tThumbWheelNoError = 0;
-          Serial.print("TWER");
-          Serial.println(NStateCountR);
-          NThubWheelErrorTotal = NThubWheelErrorTotal + 1;
-        }
-      } 
-    }
-    else{
-      if (BThumbWheelError == true) {
-        if (tThumbWheelNoError == 0) {
-          tThumbWheelNoError = tStartLoop/1000;
-        }
-        else if (tStartLoop/1000 - tThumbWheelNoError > 10000) {
-          // recover if no error for 10 s
-          Serial.println("TWOK");
-          NThumbWheelErrorL = 0;
-          NThumbWheelErrorR = 0;
-          BThumbWheelError = false;
-        }
-        if (NThubWheelErrorTotal > NThubWheelErrorAllowed) {
-          // deactivate Thumbwheels when too many errors
-          BThumbWheelDeactivated = true;
-          Serial.println("TWOFF");
-          }
-      }
-    }
+    //   // Left Thumb Wheel Error
+    //   if (NStateCountL != 1) { 
+    //     NThumbWheelErrorL += 1;
+    //     if ((700 + NThumbWheelErrorL) % 1000 == 0){
+    //       BThumbWheelError = true;
+    //       tThumbWheelNoError = 0;
+    //       Serial.print("TWEL"); 
+    //       Serial.println(NStateCountL);
+    //       NThubWheelErrorTotal = NThubWheelErrorTotal + 1;
+    //     } 
+    //   }
+    //   // Right Thumb Wheel Error 
+    //   if (NStateCountR != 1) { 
+    //     NThumbWheelErrorR += 1;
+    //     if ((700 + NThumbWheelErrorR) % 1000 == 0){
+    //       BThumbWheelError = true;
+    //       tThumbWheelNoError = 0;
+    //       Serial.print("TWER");
+    //       Serial.println(NStateCountR);
+    //       NThubWheelErrorTotal = NThubWheelErrorTotal + 1;
+    //     }
+    //   } 
+    // }
+    // else{
+    //   if (BThumbWheelError == true) {
+    //     if (tThumbWheelNoError == 0) {
+    //       tThumbWheelNoError = tStartLoop/1000;
+    //     }
+    //     else if (tStartLoop/1000 - tThumbWheelNoError > 10000) {
+    //       // recover if no error for 10 s
+    //       Serial.println("TWOK");
+    //       NThumbWheelErrorL = 0;
+    //       NThumbWheelErrorR = 0;
+    //       BThumbWheelError = false;
+    //     }
+    //     if (NThubWheelErrorTotal > NThubWheelErrorAllowed) {
+    //       // deactivate Thumbwheels when too many errors
+    //       BThumbWheelDeactivated = true;
+    //       Serial.println("TWOFF");
+    //       }
+    //   }
+    // }
   
     // Thumb Wheel Switch detection
     // Button allocation:

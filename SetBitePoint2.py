@@ -2,7 +2,7 @@ import serial
 import time
 import struct
 
-ser = serial.Serial('COM13', 9600, timeout=0.1, writeTimeout=0)
+ser = serial.Serial('COM11', 9600, timeout=0.1, writeTimeout=0)
 
 while True:
     msg = ser.readline()

@@ -2,8 +2,8 @@
 int NButtonPin[] = {3, 4, 5, 6, 7, 8, 9, A3, 16, 14, 10, 15};
 int NPinClutchL = A0;
 int NPinClutchR = A1;
-
 int NButtons = 12; // number of buttons defined in NButtonPin
+int NButtonState[] = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
 
 // Pins for shift register
 const int NShiftRegister = 4; // 1;
@@ -28,8 +28,16 @@ unsigned long tClutchStartMode = 0; // ms
 unsigned long tBothPaddlesPressed = 0; // ms
 unsigned long tStartModeThreshold = 1000; // ms
 
+// PSL arming
+unsigned long tPSLArmed = 0;
+bool BPSLArmed = false;
+unsigned long tPSLLatched = 60000; // ms
+unsigned long tPSLButtonThreshold = 500;
+unsigned long tPSLButtonSurpress = 750; // ms
+bool BPSLDisarmRequest = false;
+
 // timer settings for button latch and threshold times
-unsigned long tButtonThreshold[] = {100, 0, 100, 500, 500, 100, 100, 100, 100, 0, 100, 0}; // ms
+unsigned long tButtonThreshold[] = {100, 0, 100, 500, tPSLButtonThreshold, 100, 100, 100, 100, 0, 100, 0}; // ms
 unsigned long tButtonPressed[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; // ms
 unsigned long tButtonSet[] = {33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33, 33}; // ms
 
@@ -122,6 +130,24 @@ void loop() {
   for (int i = 0; i < NButtons; i++) {
     Button(i, digitalRead(NButtonPin[i])); 
   }
+  // PSL arming
+  if (NButtonState[2] == 0 && NButtonState[4] == 0) {
+    if (BPSLArmed == false) {Serial.write("PSL armed");};
+    BPSLArmed = true;
+    tButtonThreshold[4] = 0;
+    tPSLArmed = millis();
+  }
+  if (BPSLArmed == true && millis() - tPSLArmed > tPSLLatched) {
+    tButtonThreshold[4] = tPSLButtonThreshold;
+    Serial.write("PSL disarmed");
+    BPSLArmed = false;
+  }
+  if (BPSLDisarmRequest == true){
+    tButtonThreshold[4] = tPSLButtonThreshold;
+    BPSLArmed = false;
+    BPSLDisarmRequest = false;
+  }
+
 
   // read raw clutch signals and pass them to the clutch logic
   Clutch(analogRead(NPinClutchL), analogRead(NPinClutchR));   
@@ -144,12 +170,17 @@ void loop() {
 
 
 void Button(int NButton, int ButtonState) {
+  NButtonState[NButton] = ButtonState;
   if (ButtonState == LOW) // button pressed
   {
     // threshold logic
+    if ((NButton == 2 || NButton == 4) && (millis() - tPSLArmed < tPSLButtonSurpress)) {return;} // avoid pressing the buttons immediately
     if (tButtonPressed[NButton] == 0) {tButtonPressed[NButton] = millis();}
     if (millis() - tButtonPressed[NButton] > tButtonThreshold[NButton]) {
       Joystick.pressButton(NButton);
+      if (NButton == 4 && BPSLArmed == true && millis() - tPSLArmed > tPSLButtonSurpress) {
+        BPSLDisarmRequest = true;
+      }
     }
   }
   else // button released
